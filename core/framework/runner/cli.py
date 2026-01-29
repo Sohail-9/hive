@@ -319,12 +319,12 @@ def cmd_info(args: argparse.Namespace) -> int:
     from framework.runner import AgentRunner
 
     try:
-        runner = AgentRunner.load(args.agent_path)
+        with AgentRunner.load(args.agent_path) as runner:
+            info = runner.info()
+            has_tool_impl = runner._tool_registry.has_tool
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-
-    info = runner.info()
 
     if args.json:
         print(
@@ -368,12 +368,11 @@ def cmd_info(args: argparse.Namespace) -> int:
         print()
         print(f"Required Tools ({len(info.required_tools)}):")
         for tool in info.required_tools:
-            status = "✓" if runner._tool_registry.has_tool(tool) else "✗"
+            status = "✓" if has_tool_impl(tool) else "✗"
             print(f"  {status} {tool}")
         print()
         print(f"Tools Module: {'✓ tools.py found' if info.has_tools_module else '✗ no tools.py'}")
 
-    runner.cleanup()
     return 0
 
 
@@ -382,12 +381,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     from framework.runner import AgentRunner
 
     try:
-        runner = AgentRunner.load(args.agent_path)
+        with AgentRunner.load(args.agent_path) as runner:
+            validation = runner.validate()
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-
-    validation = runner.validate()
 
     if validation.valid:
         print("✓ Agent is valid")
@@ -407,7 +405,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f"  - {tool}")
         print("\nTo fix: Create tools.py in the agent folder or register tools programmatically")
 
-    runner.cleanup()
     return 0 if validation.valid else 1
 
 
@@ -425,20 +422,19 @@ def cmd_list(args: argparse.Namespace) -> int:
     for path in directory.iterdir():
         if path.is_dir() and (path / "agent.json").exists():
             try:
-                runner = AgentRunner.load(path)
-                info = runner.info()
-                agents.append(
-                    {
-                        "path": str(path),
-                        "name": info.name,
-                        "description": info.description[:60] + "..."
-                        if len(info.description) > 60
-                        else info.description,
-                        "nodes": info.node_count,
-                        "tools": len(info.required_tools),
-                    }
-                )
-                runner.cleanup()
+                with AgentRunner.load(path) as runner:
+                    info = runner.info()
+                    agents.append(
+                        {
+                            "path": str(path),
+                            "name": info.name,
+                            "description": info.description[:60] + "..."
+                            if len(info.description) > 60
+                            else info.description,
+                            "nodes": info.node_count,
+                            "tools": len(info.required_tools),
+                        }
+                    )
             except Exception as e:
                 agents.append(
                     {
@@ -459,7 +455,7 @@ def cmd_list(args: argparse.Namespace) -> int:
             print(f"  {agent['name']}")
             print(f"    Path: {agent['path']}")
             print(f"    Description: {agent['description']}")
-            print(f"    Steps: {agent['steps']}, Tools: {agent['tools']}")
+            print(f"    Nodes: {agent['nodes']}, Tools: {agent['tools']}")
             print()
 
     return 0

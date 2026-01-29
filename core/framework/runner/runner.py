@@ -1101,6 +1101,15 @@ Respond with JSON only:
         """Context manager exit."""
         await self.cleanup_async()
 
+    def __enter__(self) -> "AgentRunner":
+        """Synchronous context manager entry."""
+        self._setup()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Synchronous context manager exit."""
+        self.cleanup()
+
     def __del__(self) -> None:
         """Destructor - cleanup temp dir."""
         self.cleanup()
